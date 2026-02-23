@@ -1,0 +1,8 @@
+{
+  "id": "map-plugin",
+  "name": "Interactive Map",
+  "version": "1.0.0",
+  "description": "Display interactive maps with locations",
+  "author": "Nexus",
+  "enabled": true
+}

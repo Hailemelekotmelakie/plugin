@@ -1,0 +1,8 @@
+{
+  "id": "wiki-plugin",
+  "name": "Wiki Plugin",
+  "version": "1.0.0",
+  "description": "Display Wiki articles and information",
+  "author": "Nexus",
+  "enabled": true
+}
