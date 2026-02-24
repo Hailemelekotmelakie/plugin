@@ -5,53 +5,140 @@ const path = require("path");
 const AdmZip = require("adm-zip");
 const { execSync } = require("child_process");
 
+const pluginsDir = path.join(__dirname, "../src/plugins");
+
 async function installPlugin(source) {
-  const pluginsDir = path.join(__dirname, "../src/plugins");
+  console.log("📦 Installing plugin...");
 
-  console.log("📦 Installing plugin into Nexus...");
-
+  // Ensure plugins directory exists
   await fs.ensureDir(pluginsDir);
 
+  let pluginId;
   let pluginPath;
-  let pluginName;
 
   if (source.endsWith(".zip")) {
+    // Read ZIP file
     const zip = new AdmZip(source);
-    const zipEntries = zip.getEntries();
+    const entries = zip.getEntries();
 
-    const configEntry = zipEntries.find((e) =>
+    // Find plugin.json to get plugin ID
+    const configEntry = entries.find((e) =>
       e.entryName.endsWith("plugin.json"),
     );
     if (!configEntry) {
       console.error("❌ Invalid plugin: No plugin.json found");
-      return;
+      process.exit(1);
     }
 
     const config = JSON.parse(configEntry.getData().toString());
-    pluginName = config.id || config.name;
-    pluginPath = path.join(pluginsDir, pluginName);
+    pluginId = config.id || config.name || path.basename(source, ".zip");
 
+    // Extract to plugins directory
+    pluginPath = path.join(pluginsDir, pluginId);
+
+    // Remove existing if present
+    if (await fs.pathExists(pluginPath)) {
+      console.log(`⚠️  Plugin ${pluginId} already exists. Overwriting...`);
+      await fs.remove(pluginPath);
+    }
+
+    // Extract
     zip.extractAllTo(pluginPath, true);
-    console.log(`✅ Plugin extracted to: ${pluginPath}`);
+
+    // Handle nested folders
+    const files = await fs.readdir(pluginPath);
+    if (files.length === 1) {
+      const firstFile = path.join(pluginPath, files[0]);
+      const stat = await fs.stat(firstFile);
+      if (stat.isDirectory()) {
+        // Move contents up
+        const tempPath = path.join(pluginsDir, `temp_${Date.now()}`);
+        await fs.move(firstFile, tempPath);
+        await fs.remove(pluginPath);
+        await fs.move(tempPath, pluginPath);
+      }
+    }
+
+    console.log(`✅ Extracted to: ${pluginPath}`);
   } else {
-    pluginName = path.basename(source);
-    pluginPath = path.join(pluginsDir, pluginName);
+    // Copy directory
+    pluginId = path.basename(source);
+    pluginPath = path.join(pluginsDir, pluginId);
+
+    if (await fs.pathExists(pluginPath)) {
+      console.log(`⚠️  Plugin ${pluginId} already exists. Overwriting...`);
+      await fs.remove(pluginPath);
+    }
+
     await fs.copy(source, pluginPath);
-    console.log(`✅ Plugin copied to: ${pluginPath}`);
+    console.log(`✅ Copied to: ${pluginPath}`);
   }
 
   // Install plugin dependencies
   console.log("📦 Installing plugin dependencies...");
-  execSync(`cd ${pluginPath} && npm install`, { stdio: "inherit" });
+  try {
+    execSync(`cd "${pluginPath}" && npm install --production`, {
+      stdio: "inherit",
+      shell: true,
+    });
+  } catch (err) {
+    console.log("⚠️  Dependency installation failed, continuing...");
+  }
 
-  console.log("✅ Plugin installed successfully!");
-  console.log("🔄 Restart the app to load the new plugin");
+  // Update manifest
+  await updateManifest();
+
+  console.log("\n✅ Plugin installed successfully!");
+  console.log(`📍 Location: ${pluginPath}`);
+  console.log("\n🔄 Restart your app to load the new plugin");
 }
 
+async function updateManifest() {
+  const manifestPath = path.join(__dirname, "../src/plugin-manifest.json");
+  const plugins = [];
+
+  const items = await fs.readdir(pluginsDir);
+
+  for (const item of items) {
+    const pluginPath = path.join(pluginsDir, item);
+    const stat = await fs.stat(pluginPath);
+
+    if (stat.isDirectory()) {
+      try {
+        const configPath = path.join(pluginPath, "plugin.json");
+        if (await fs.pathExists(configPath)) {
+          const config = await fs.readJson(configPath);
+          plugins.push({
+            id: item,
+            ...config,
+            path: `../plugins/${item}/index.js`,
+          });
+        }
+      } catch (err) {
+        console.error(`Error reading ${item}:`, err.message);
+      }
+    }
+  }
+
+  await fs.writeJson(manifestPath, { plugins }, { spaces: 2 });
+  console.log(`📝 Manifest updated with ${plugins.length} plugins`);
+}
+
+// Command line interface
 const source = process.argv[2];
-if (!source) {
-  console.log("Usage: npm run install-plugin <path-to-plugin-or-zip>");
-  process.exit(1);
+if (!source || source === "--help") {
+  console.log(`
+🔌 Nexus Plugin Installer
+
+Usage:
+  npm run install-plugin <path-to-zip>     Install from ZIP file
+  npm run install-plugin <plugin-folder>   Install from folder
+
+Examples:
+  npm run install-plugin ./dist/plugins/wiki-plugin-v1.0.0.zip
+  npm run install-plugin ../my-plugin-folder
+  `);
+  process.exit(0);
 }
 
 installPlugin(source).catch(console.error);

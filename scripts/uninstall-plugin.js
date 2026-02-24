@@ -2,40 +2,124 @@
 
 const fs = require("fs-extra");
 const path = require("path");
+const readline = require("readline");
 
-async function uninstallPlugin(pluginId) {
-  const pluginPath = path.join(__dirname, "../src/plugins", pluginId);
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
+
+const pluginsDir = path.join(__dirname, "../src/plugins");
+
+async function uninstallPlugin(pluginId, force = false) {
+  console.log(`🗑️  Uninstalling plugin: ${pluginId}`);
+
+  const pluginPath = path.join(pluginsDir, pluginId);
 
   if (!(await fs.pathExists(pluginPath))) {
     console.error(`❌ Plugin "${pluginId}" not found`);
-    return;
+
+    // List available plugins
+    const plugins = await fs.readdir(pluginsDir);
+    if (plugins.length > 0) {
+      console.log("\nAvailable plugins:");
+      plugins.forEach((p) => console.log(`  - ${p}`));
+    }
+    process.exit(1);
   }
+
+  // Read plugin info
+  let pluginName = pluginId;
+  let pluginVersion = "unknown";
 
   try {
-    const config = await fs.readJson(path.join(pluginPath, "plugin.json"));
-    console.log(
-      `🗑️  Uninstalling: ${config.name || pluginId} v${config.version || "1.0.0"}`,
-    );
-  } catch {
-    console.log(`🗑️  Uninstalling: ${pluginId}`);
+    const configPath = path.join(pluginPath, "plugin.json");
+    if (await fs.pathExists(configPath)) {
+      const config = await fs.readJson(configPath);
+      pluginName = config.name || pluginId;
+      pluginVersion = config.version || "unknown";
+    }
+  } catch (err) {
+    // Ignore
   }
 
+  console.log(`\n📦 Plugin details:`);
+  console.log(`   Name: ${pluginName}`);
+  console.log(`   ID: ${pluginId}`);
+  console.log(`   Version: ${pluginVersion}`);
+  console.log(`   Path: ${pluginPath}`);
+
+  if (!force) {
+    const answer = await new Promise((resolve) => {
+      rl.question("\n⚠️  Are you sure you want to uninstall? (y/N) ", resolve);
+    });
+
+    if (answer.toLowerCase() !== "y") {
+      console.log("❌ Uninstall cancelled");
+      rl.close();
+      process.exit(0);
+    }
+  }
+
+  // Remove plugin
   await fs.remove(pluginPath);
-  console.log("✅ Plugin uninstalled successfully");
-  console.log("🔄 Restart the app to update");
+  console.log("✅ Plugin files removed");
+
+  // Update manifest
+  await updateManifest();
+
+  console.log(`\n✅ Plugin "${pluginName}" uninstalled successfully!`);
+  rl.close();
 }
 
-const pluginId = process.argv[2];
-if (!pluginId) {
-  console.log("Usage: npm run uninstall-plugin <plugin-id>");
-  console.log("\nAvailable plugins:");
+async function updateManifest() {
+  const manifestPath = path.join(__dirname, "../src/plugin-manifest.json");
+  const plugins = [];
 
-  const pluginsDir = path.join(__dirname, "../src/plugins");
-  if (fs.existsSync(pluginsDir)) {
-    const plugins = fs.readdirSync(pluginsDir);
-    plugins.forEach((p) => console.log(`  - ${p}`));
+  const items = await fs.readdir(pluginsDir);
+
+  for (const item of items) {
+    const pluginPath = path.join(pluginsDir, item);
+    const stat = await fs.stat(pluginPath);
+
+    if (stat.isDirectory()) {
+      try {
+        const configPath = path.join(pluginPath, "plugin.json");
+        if (await fs.pathExists(configPath)) {
+          const config = await fs.readJson(configPath);
+          plugins.push({
+            id: item,
+            ...config,
+            path: `../plugins/${item}/index.js`,
+          });
+        }
+      } catch (err) {
+        // Ignore
+      }
+    }
   }
-  process.exit(1);
+
+  await fs.writeJson(manifestPath, { plugins }, { spaces: 2 });
 }
 
-uninstallPlugin(pluginId).catch(console.error);
+// Command line interface
+const args = process.argv.slice(2);
+const pluginId = args[0];
+const force = args.includes("--force") || args.includes("-f");
+
+if (!pluginId || args.includes("--help")) {
+  console.log(`
+🔌 Nexus Plugin Uninstaller
+
+Usage:
+  npm run uninstall-plugin <plugin-id>          Uninstall a plugin
+  npm run uninstall-plugin <plugin-id> --force  Force uninstall (no prompt)
+
+Examples:
+  npm run uninstall-plugin wiki-plugin
+  npm run uninstall-plugin map-plugin --force
+  `);
+  process.exit(0);
+}
+
+uninstallPlugin(pluginId, force).catch(console.error);

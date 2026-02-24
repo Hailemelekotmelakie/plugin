@@ -117,13 +117,6 @@ function App() {
           <PluginSlot />
         </div>
       </main>
-
-      <footer>
-        <p>
-          Footer - Nexus Plugin System Demo. All plugins share the same root
-          node_modules for maximum compatibility.
-        </p>
-      </footer>
     </div>
   );
 }

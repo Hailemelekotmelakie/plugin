@@ -1,34 +1,41 @@
 import { useEffect } from "react";
 import { nexus } from "./PluginManager";
-import mapPlugin from "../plugins/map-plugin";
-import wikiPlugin from "../plugins/wiki-plugin";
+import manifest from "../plugin-manifest.json";
 
 export const usePlugins = () => {
   useEffect(() => {
-    // Clear existing plugins (optional)
-    nexus.plugins = [];
+    console.log("📦 Loading plugins from manifest...");
 
-    // Register Map Plugin
-    const map = {
-      id: "map-plugin",
-      name: mapPlugin.name || "Map Plugin",
-      version: mapPlugin.version || "1.0.0",
-      component: mapPlugin.component,
-      enabled: true,
-      ...mapPlugin,
-    };
-    nexus.register(map);
+    const loadPlugins = async () => {
+      for (const pluginInfo of manifest.plugins) {
+        try {
+          // For CRA, we need to use relative paths from the current file
+          const module = await import(`../plugins/${pluginInfo.id}/index.js`);
 
-    const wiki = {
-      id: "wiki-plugin",
-      name: "Wiki Plugin",
-      version: "1.0.0",
-      component: wikiPlugin.component,
-      enabled: true,
-      ...wikiPlugin,
+          // Get the component (handle different export patterns)
+          const component = module.default || module;
+
+          nexus.register({
+            id: pluginInfo.id,
+            name: pluginInfo.name,
+            version: pluginInfo.version,
+            description: pluginInfo.description,
+            icon: pluginInfo.icon,
+            zone: pluginInfo.zone,
+            enabled: pluginInfo.enabled,
+            component: component,
+            ...pluginInfo,
+          });
+
+          console.log(`✅ Loaded: ${pluginInfo.name}`);
+        } catch (err) {
+          console.error(`❌ Failed to load ${pluginInfo.id}:`, err);
+        }
+      }
     };
-    nexus.register(wiki);
+
+    loadPlugins();
   }, []);
-  console.log("nexus", nexus);
+
   return nexus;
 };

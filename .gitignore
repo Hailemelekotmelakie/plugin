@@ -11,6 +11,9 @@ node_modules
 # production
 /build
 
+
+plugin-manifest.json
+
 # misc
 .DS_Store
 .env.local

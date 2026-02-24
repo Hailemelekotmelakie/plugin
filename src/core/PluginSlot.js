@@ -9,6 +9,8 @@ export const PluginSlot = ({ ...props }) => {
     const enabled = nexus.getEnabled();
     setPlugins(enabled);
 
+    console.log(enabled);
+
     if (enabled.length > 0) {
       setActiveTab(enabled[0].id); // default first tab
     }
@@ -53,7 +55,7 @@ export const PluginSlot = ({ ...props }) => {
       {/* Active Plugin Content */}
       <div>
         {activePlugin && activePlugin.component && (
-          <activePlugin.component {...props} />
+          <activePlugin.component.component {...props} />
         )}
       </div>
     </div>
