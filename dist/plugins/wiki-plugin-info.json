@@ -1,0 +1,12 @@
+{
+  "id": "wiki-plugin",
+  "name": "Wiki Plugin",
+  "version": "1.0.0",
+  "description": "Display Wiki articles and information",
+  "author": "Nexus",
+  "license": "MIT",
+  "dependencies": {},
+  "size": 820,
+  "packageFile": "wiki-plugin-v1.0.0.zip",
+  "installInstructions": "\nInstallation:\n1. Run: npm run install-plugin wiki-plugin-v1.0.0.zip\n2. Or use the Plugin Manager UI\n    "
+}

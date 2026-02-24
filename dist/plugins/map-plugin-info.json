@@ -1,0 +1,12 @@
+{
+  "id": "map-plugin",
+  "name": "Interactive Map",
+  "version": "1.0.0",
+  "description": "Display interactive maps with locations",
+  "author": "Nexus",
+  "license": "MIT",
+  "dependencies": {},
+  "size": 797,
+  "packageFile": "map-plugin-v1.0.0.zip",
+  "installInstructions": "\nInstallation:\n1. Run: npm run install-plugin map-plugin-v1.0.0.zip\n2. Or use the Plugin Manager UI\n    "
+}

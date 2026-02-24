@@ -77,12 +77,13 @@ async function installPlugin(source) {
   // Install plugin dependencies
   console.log("📦 Installing plugin dependencies...");
   try {
-    execSync(`cd "${pluginPath}" && npm install --production`, {
+    // We run this from the root, targeting the specific plugin workspace
+    execSync(`npm install`, {
       stdio: "inherit",
       shell: true,
     });
   } catch (err) {
-    console.log("⚠️  Dependency installation failed, continuing...");
+    console.log("Dependency installation failed, continuing...");
   }
 
   // Update manifest
@@ -90,7 +91,7 @@ async function installPlugin(source) {
 
   console.log("\n✅ Plugin installed successfully!");
   console.log(`📍 Location: ${pluginPath}`);
-  console.log("\n🔄 Restart your app to load the new plugin");
+  console.log("\n🔄 Restart and scan your app to load the new plugin");
 }
 
 async function updateManifest() {
@@ -132,12 +133,10 @@ if (!source || source === "--help") {
 
 Usage:
   npm run install-plugin <path-to-zip>     Install from ZIP file
-  npm run install-plugin <plugin-folder>   Install from folder
-
+ 
 Examples:
   npm run install-plugin ./dist/plugins/wiki-plugin-v1.0.0.zip
-  npm run install-plugin ../my-plugin-folder
-  `);
+   `);
   process.exit(0);
 }
 
