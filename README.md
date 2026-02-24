@@ -2,6 +2,10 @@
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
+## How to install packages to specific plugin
+
+npm install axios -w @nexus/plugin-wiki
+
 ## Available Scripts
 
 In the project directory, you can run:
